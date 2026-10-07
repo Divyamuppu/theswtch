@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// thswtch Social HQ — no accounts. Everyone opens the link and signs in
+// anonymously, so anyone can read and edit the board. Chat messages and
+// the name a person sets are tied to their own anonymous id.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function ok() { return request.auth != null; }
+
+    // Each person's profile holds the display name they typed for the chat.
+    match /profiles/{uid} {
+      allow read: if ok();
+      allow write: if ok() && uid == request.auth.uid;
+    }
+
+    // Board — anyone can read and edit.
+    match /settings/{doc}     { allow read, write: if ok(); }
+    match /quickLinks/{doc}   { allow read, write: if ok(); }
+    match /tasks/{doc}        { allow read, write: if ok(); }
+    match /reportLinks/{doc}  { allow read, write: if ok(); }
+
+    // Chat — everyone reads; you post, edit and delete only your own messages.
+    match /comments/{doc} {
+      allow read: if ok();
+      allow create: if ok()
+        && request.resource.data.authorId == request.auth.uid;
+      allow update, delete: if ok()
+        && resource.data.authorId == request.auth.uid;
+    }
+  }
+}
