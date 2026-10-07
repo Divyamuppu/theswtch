@@ -215,6 +215,17 @@ a.lrow:hover .go{color:var(--accent)}
 .msg:hover .bdel{display:grid}
 .bdel:hover{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,var(--border))}
 .chat .composer{margin-top:14px}
+.bubacts{position:absolute;top:-11px;display:none;gap:4px}
+.msg.me .bubacts{left:-8px}
+.msg.them .bubacts{right:-8px}
+.msg:hover .bubacts{display:flex}
+.bubacts button{width:25px;height:25px;padding:0;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--faint);display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+.bubacts button svg{width:13px;height:13px}
+.bubacts button:hover{color:var(--fg)}
+.bubacts button.del:hover{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,var(--border))}
+.bub-edit{background:var(--surface);border:1.5px solid var(--border-strong);border-radius:16px;padding:9px 11px;min-width:min(320px,72vw);max-width:min(560px,82%)}
+.bub-edit textarea{width:100%;border:none;background:transparent;resize:vertical;font-family:var(--body);font-size:14.5px;line-height:1.45;color:var(--fg);outline:none;min-height:46px}
+.edit-acts{display:flex;gap:6px;justify-content:flex-end;margin-top:7px}
 
 /* completed section */
 .done-sec{margin-top:20px}
