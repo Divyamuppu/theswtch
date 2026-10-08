@@ -14,6 +14,8 @@ export interface Settings {
   notes: string;
   socialsCalendarLabel: string;
   socialsCalendarUrl: string;
+  websiteLabel: string;
+  websiteUrl: string;
 }
 
 export interface QuickLink {
@@ -52,4 +54,6 @@ export const DEFAULT_SETTINGS: Settings = {
   notes: "",
   socialsCalendarLabel: "Content Calendar (Excel)",
   socialsCalendarUrl: "",
+  websiteLabel: "Website",
+  websiteUrl: "",
 };

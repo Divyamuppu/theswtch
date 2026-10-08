@@ -55,7 +55,7 @@ const TABS: [Tab, string][] = [
 
 type LinkModal = {
   kind: "link";
-  target: "ql" | "cal" | "task" | "report-new" | "report-edit";
+  target: "ql" | "cal" | "website" | "task" | "report-new" | "report-edit";
   key?: string;
   id?: string;
   hasText: boolean;
@@ -65,7 +65,12 @@ type LinkModal = {
   url?: string;
   canRemove?: boolean;
 };
-type NameModal = { kind: "name"; welcome: boolean; prefill: string };
+type NameModal = {
+  kind: "name";
+  welcome?: boolean;
+  required?: boolean;
+  prefill: string;
+};
 type WeekModal = { kind: "week" };
 type ModalState = LinkModal | NameModal | WeekModal | null;
 
@@ -88,6 +93,13 @@ export default function Dashboard({ user }: { user: User }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [modal, setModal] = useState<ModalState>(null);
   const [toast, setToast] = useState("");
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(
+    null
+  );
+  const [pendingComment, setPendingComment] = useState<{
+    tab: Tab;
+    body: string;
+  } | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatStick = useRef(true);
@@ -320,9 +332,7 @@ export default function Dashboard({ user }: { user: User }) {
       "Couldn't delete the report."
     );
 
-  const postComment = async (tab: Tab, body: string) => {
-    body = body.trim();
-    if (!body) return;
+  const doPost = async (tab: Tab, body: string) => {
     const id = uid();
     chatStick.current = true;
     setDrafts((d) => ({ ...d, [tab]: "" }));
@@ -335,6 +345,27 @@ export default function Dashboard({ user }: { user: User }) {
       });
     } catch {
       showToast("Couldn't send your message.");
+    }
+  };
+  const postComment = (tab: Tab, body: string) => {
+    body = body.trim();
+    if (!body) return;
+    // A name is required to chat — prompt for it first if not set.
+    if (!myName.trim()) {
+      setPendingComment({ tab, body });
+      setModal({ kind: "name", required: true, prefill: "" });
+      return;
+    }
+    doPost(tab, body);
+  };
+  const saveEdit = async (c: Comment, text: string) => {
+    text = text.trim();
+    setEditing(null);
+    if (!text || text === c.body) return;
+    try {
+      await updateDoc(doc(db, "comments", c.id), { body: text });
+    } catch {
+      showToast("Couldn't edit your message.");
     }
   };
   const deleteComment = async (c: Comment) => {
@@ -422,22 +453,20 @@ export default function Dashboard({ user }: { user: User }) {
                 {settings.weekLabel}
               </div>
             </div>
-            {myName && (
-              <span className="mechip">
-                <span className="av sm">{initials(myName)}</span>
-                <span className="nm">{firstName(myName)}</span>
-                <button
-                  className="namechg"
-                  title="Change your name"
-                  aria-label="Change your name"
-                  onClick={() =>
-                    setModal({ kind: "name", welcome: false, prefill: myName })
-                  }
-                >
-                  <Icon n="pencil" />
-                </button>
+            <button
+              className="mechip"
+              title="Set or change your name"
+              aria-label="Set or change your name"
+              onClick={() =>
+                setModal({ kind: "name", welcome: false, prefill: myName })
+              }
+            >
+              <span className="av sm">{myName ? initials(myName) : "?"}</span>
+              <span className="nm">{myName ? firstName(myName) : "Set name"}</span>
+              <span className="namechg">
+                <Icon n="pencil" />
               </span>
-            )}
+            </button>
             <span className={`rolepill ${roleLabel[0]}`} title={roleLabel[1]}>
               <span className="dot" />
               {roleLabel[1]}
@@ -607,13 +636,7 @@ export default function Dashboard({ user }: { user: User }) {
         links: false,
       });
     if (activeTab === "socials") return socialsPanel();
-    if (activeTab === "website")
-      return todoPanel("website", {
-        title: "Website",
-        desc: "Site tasks — attach a link to anything that needs a click.",
-        ph: "Add a website task…",
-        links: true,
-      });
+    if (activeTab === "website") return websitePanel();
     if (activeTab === "performance")
       return todoPanel("performance", {
         title: "Performance",
@@ -773,6 +796,65 @@ export default function Dashboard({ user }: { user: User }) {
         <div className="subhead">Checklist</div>
         <PhContext.Provider value="Add a social task…">
           {todoList("socials", false)}
+        </PhContext.Provider>
+      </>
+    );
+  }
+
+  function websitePanel() {
+    const u = normUrl(settings.websiteUrl);
+    return (
+      <>
+        <div className="panel-head">
+          <h1 className="pt">Website</h1>
+          <div className="pd">
+            The site link — a CSV, sheet, or the website itself — plus tasks.
+          </div>
+        </div>
+        <div className="feature">
+          <span className="fi web">
+            <Icon n="web" />
+          </span>
+          <div className="ft">
+            <div className="l">{settings.websiteLabel || "Website"}</div>
+            <div className="u">
+              {u
+                ? u
+                : isTeam
+                  ? "Paste the CSV / Excel / website link so it opens in one click."
+                  : "No link added yet."}
+            </div>
+          </div>
+          <div className="fa">
+            {u && (
+              <a className="btn primary" href={u} target="_blank" rel="noopener">
+                Open
+              </a>
+            )}
+            {isTeam && (
+              <button
+                className={u ? "btn ghost" : "btn primary"}
+                onClick={() =>
+                  setModal({
+                    kind: "link",
+                    target: "website",
+                    hasText: true,
+                    title: "Website link",
+                    label: settings.websiteLabel,
+                    url: settings.websiteUrl,
+                    canRemove: !!settings.websiteUrl,
+                    sub: "A CSV, Excel or website link for this brand.",
+                  })
+                }
+              >
+                {u ? "Edit" : "Add link"}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="subhead">Checklist</div>
+        <PhContext.Provider value="Add a website task…">
+          {todoList("website", true)}
         </PhContext.Provider>
       </>
     );
@@ -949,19 +1031,63 @@ export default function Dashboard({ user }: { user: User }) {
                         <span className="t">{ago(c.createdAt)}</span>
                       </div>
                     )}
-                    <div className="bubble">
-                      {renderBody(c.body)}
-                      {(mine || isTeam) && (
-                        <button
-                          className="bdel"
-                          title="Delete"
-                          aria-label="Delete"
-                          onClick={() => deleteComment(c)}
-                        >
-                          <Icon n="trash" />
-                        </button>
-                      )}
-                    </div>
+                    {editing && editing.id === c.id ? (
+                      <div className="bub-edit">
+                        <textarea
+                          autoFocus
+                          value={editing.text}
+                          onChange={(e) =>
+                            setEditing({ id: c.id, text: e.target.value })
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              saveEdit(c, editing.text);
+                            }
+                            if (e.key === "Escape") setEditing(null);
+                          }}
+                        />
+                        <div className="edit-acts">
+                          <button
+                            className="btn-s"
+                            onClick={() => setEditing(null)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="btn-s primary"
+                            onClick={() => saveEdit(c, editing.text)}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bubble">
+                        {renderBody(c.body)}
+                        {mine && (
+                          <div className="bubacts">
+                            <button
+                              title="Edit"
+                              aria-label="Edit"
+                              onClick={() =>
+                                setEditing({ id: c.id, text: c.body })
+                              }
+                            >
+                              <Icon n="pencil" />
+                            </button>
+                            <button
+                              className="del"
+                              title="Delete"
+                              aria-label="Delete"
+                              onClick={() => deleteComment(c)}
+                            >
+                              <Icon n="trash" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -983,7 +1109,8 @@ export default function Dashboard({ user }: { user: User }) {
 
   function renderModal() {
     if (!modal) return null;
-    const dismissible = !(modal.kind === "name" && modal.welcome);
+    // A name is optional to browse, but required to chat — that prompt can't be dismissed.
+    const dismissible = !(modal.kind === "name" && modal.required);
     return (
       <div
         className="ov"
@@ -994,12 +1121,24 @@ export default function Dashboard({ user }: { user: User }) {
         <div className="modal" role="dialog" aria-modal="true">
           {modal.kind === "name" && (
             <NameModalBody
-              welcome={modal.welcome}
+              welcome={!!modal.welcome}
+              required={!!modal.required}
               prefill={modal.prefill}
+              onSkip={() => {
+                try {
+                  localStorage.setItem("thswtch-welcomed", "1");
+                } catch {}
+                setModal(null);
+              }}
               onCancel={() => setModal(null)}
               onSave={(n) => {
                 saveName(n);
                 setModal(null);
+                const pc = pendingComment;
+                if (pc) {
+                  setPendingComment(null);
+                  doPost(pc.tab, pc.body);
+                }
               }}
             />
           )}
@@ -1036,6 +1175,11 @@ export default function Dashboard({ user }: { user: User }) {
       saveSettings({
         socialsCalendarUrl: u,
         socialsCalendarLabel: label.trim() || settings.socialsCalendarLabel,
+      });
+    else if (m.target === "website")
+      saveSettings({
+        websiteUrl: u,
+        websiteLabel: label.trim() || settings.websiteLabel,
       });
     else if (m.target === "task" && m.id)
       teamWrite(
@@ -1281,12 +1425,16 @@ function Composer({
 
 function NameModalBody({
   welcome,
+  required,
   prefill,
+  onSkip,
   onCancel,
   onSave,
 }: {
   welcome: boolean;
+  required: boolean;
   prefill: string;
+  onSkip: () => void;
   onCancel: () => void;
   onSave: (n: string) => void;
 }) {
@@ -1299,14 +1447,20 @@ function NameModalBody({
     }
     onSave(val);
   };
+  const heading = required
+    ? "Add your name to chat"
+    : welcome
+      ? "Welcome to thswtch Social HQ"
+      : "Your name";
+  const sub = required
+    ? "Pick a name so everyone knows who's talking in the discussion."
+    : welcome
+      ? "Add your name so the team knows who left each comment — or skip and just look around."
+      : "Update how your name shows on comments.";
   return (
     <>
-      <h3>{welcome ? "Welcome to thswtch Social HQ" : "Your name"}</h3>
-      <p className="mh-sub">
-        {welcome
-          ? "Add your name so the team knows who left each comment. We’ll remember you on this device."
-          : "Update how your name shows on comments."}
-      </p>
+      <h3>{heading}</h3>
+      <p className="mh-sub">{sub}</p>
       <div className="field">
         <label htmlFor="m-name">Your name</label>
         <input
@@ -1327,13 +1481,18 @@ function NameModalBody({
         {err && <div className="err">{err}</div>}
       </div>
       <div className="modal-acts">
-        {!welcome && (
+        {welcome && (
+          <button className="btn ghost" onClick={onSkip}>
+            Skip for now
+          </button>
+        )}
+        {!welcome && !required && (
           <button className="btn ghost" onClick={onCancel}>
             Cancel
           </button>
         )}
         <button className="btn primary" onClick={submit}>
-          {welcome ? "Continue" : "Save"}
+          {required ? "Save & post" : welcome ? "Continue" : "Save"}
         </button>
       </div>
     </>

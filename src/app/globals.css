@@ -105,6 +105,7 @@ a.ql:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(
 /* featured calendar card */
 .feature{display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:var(--r-lg);border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm);flex-wrap:wrap}
 .feature .fi{width:52px;height:52px;border-radius:13px;flex:none;display:grid;place-items:center;background:linear-gradient(135deg,#1a7a4a,#15603a);color:#fff}
+.feature .fi.web{background:linear-gradient(135deg,var(--grad-a),var(--grad-b));color:#fff}
 .feature .ft{flex:1;min-width:160px}
 .feature .ft .l{font-family:var(--disp);font-weight:700;font-size:17px}
 .feature .ft .u{font-size:13px;color:var(--muted);word-break:break-all}
